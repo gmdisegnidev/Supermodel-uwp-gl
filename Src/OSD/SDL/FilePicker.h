@@ -11,4 +11,7 @@ namespace UWP {
 
     // Interactive fallback used when the app was launched without a ROM.
     std::string pick_a_file();
+
+    // If launchOnExit was supplied in the activation URI, return control to it.
+    void return_to_frontend();
 }
