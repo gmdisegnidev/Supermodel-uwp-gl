@@ -8,10 +8,13 @@ using namespace Windows::ApplicationModel::Core;
 using namespace Windows::Foundation;
 using namespace Windows::Storage;
 using namespace Windows::Storage::AccessCache;
+using namespace Windows::System;
 using namespace Windows::UI::Core;
 
 namespace
 {
+    std::string s_launch_on_exit;
+
     std::string Narrow(Platform::String^ value)
     {
         if (value == nullptr)
@@ -27,6 +30,12 @@ namespace
             result.push_back(ch <= 0x7f ? static_cast<char>(ch) : '?');
         }
         return result;
+    }
+
+    Platform::String^ Widen(const std::string& value)
+    {
+        std::wstring wide(value.begin(), value.end());
+        return ref new Platform::String(wide.c_str());
     }
 
     std::vector<std::string> SplitCommandLine(const std::string& command)
@@ -115,15 +124,20 @@ std::vector<std::string> UWP::activation_arguments()
 
     std::string rom;
     std::string command;
-    auto decoder = ref new WwwFormUrlDecoder(protocol_args->Uri->Query);
-    for (unsigned int i = 0; i < decoder->Size; ++i)
+    if (protocol_args->Uri->Query->Length() > 0)
     {
-        auto entry = decoder->GetAt(i);
-        std::string name = Narrow(entry->Name);
-        if (name == "rom" || name == "path" || name == "file")
-            rom = Narrow(entry->Value);
-        else if (name == "cmd")
-            command = Narrow(entry->Value);
+        auto decoder = ref new WwwFormUrlDecoder(protocol_args->Uri->Query);
+        for (unsigned int i = 0; i < decoder->Size; ++i)
+        {
+            auto entry = decoder->GetAt(i);
+            std::string name = Narrow(entry->Name);
+            if (name == "rom" || name == "path" || name == "file")
+                rom = Narrow(entry->Value);
+            else if (name == "cmd")
+                command = Narrow(entry->Value);
+            else if (name == "launchOnExit")
+                s_launch_on_exit = Narrow(entry->Value);
+        }
     }
 
     if (!command.empty())
@@ -148,4 +162,17 @@ std::string UWP::pick_a_file()
 
     RememberFile(file);
     return Narrow(file->Path);
+}
+
+void UWP::return_to_frontend()
+{
+    if (s_launch_on_exit.empty())
+        return;
+
+    std::string uri_text = s_launch_on_exit;
+    if (uri_text.find(':') == std::string::npos)
+        uri_text.push_back(':');
+
+    auto operation = Launcher::LaunchUriAsync(ref new Uri(Widen(uri_text)));
+    WaitForAsync(operation);
 }
