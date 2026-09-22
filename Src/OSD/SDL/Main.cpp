@@ -1909,13 +1909,29 @@ static ParsedCommandLine ParseCommandLine(const std::vector<std::string>& argv)
 int main(int argc, char **argv)
 {
   std::vector<std::string> args;
+  for (int i = 0; i < argc; ++i)
+    args.emplace_back(argv[i] != nullptr ? argv[i] : "");
+
+  if (args.empty())
+    args.emplace_back("");
+
   Title();
-  if (argc <= 1)
+
+#ifdef __WINRT__
+  if (args.size() <= 1)
+  {
+    auto activation_args = UWP::activation_arguments();
+    args.insert(args.end(), activation_args.begin(), activation_args.end());
+  }
+#endif
+
+  if (args.size() <= 1)
   {
 #ifdef __WINRT__
-      std::string path = UWP::pick_a_file();
-      args.push_back("");
-      args.push_back(path);
+    std::string path = UWP::pick_a_file();
+    if (path.empty())
+      return 0;
+    args.push_back(path);
 #else
     Help();
     return 0;
@@ -1942,8 +1958,8 @@ int main(int argc, char **argv)
   SetLogger(logger);
   InfoLog("Supermodel Version " SUPERMODEL_VERSION);
   InfoLog("Started as:");
-  for (int i = 0; i < argc; i++)
-    InfoLog("  argv[%d] = %s", i, argv[i]);
+  for (size_t i = 0; i < args.size(); ++i)
+    InfoLog("  argv[%u] = %s", static_cast<unsigned>(i), args[i].c_str());
 
   // Finish processing command line
   if (cmd_line.print_help)
