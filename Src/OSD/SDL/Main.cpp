@@ -2170,5 +2170,9 @@ Exit:
   else
     InfoLog("Program terminated normally.");
 
+#ifdef __WINRT__
+  UWP::return_to_frontend();
+#endif
+
   return exitCode;
 }
